@@ -1,0 +1,20 @@
+name: "Lint PR: Jira Key"
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check-jira:
+    name: Validate Jira Ticket
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Jira ID
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const jiraRegex = /[A-Z]{2,10}-\d+/;
+            if (!jiraRegex.test(title)) {
+              core.setFailed(`PR Title missing Jira ticket (e.g. ABC-123). Current title: "${title}"`);
+            }
