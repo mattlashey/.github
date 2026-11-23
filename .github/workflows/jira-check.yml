@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, edited, synchronize]
 
+# Ruleset workflows get a restricted token by default; reading the PR needs this.
+permissions:
+  pull-requests: read
+
 jobs:
   check-jira:
     name: Validate Jira Ticket
@@ -13,7 +17,19 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = context.payload.pull_request.title;
+            // Re-runs replay the original event payload, so its title is stale.
+            // Read the live title so "edit title -> Re-run" passes.
+            let title = context.payload.pull_request.title;
+            try {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+              });
+              title = pr.title;
+            } catch (error) {
+              core.warning(`Could not fetch the current PR title, using the event title instead: ${error.message}`);
+            }
             const jiraRegex = /[A-Z]{2,10}-\d+/;
             if (!jiraRegex.test(title)) {
               core.setFailed(`PR Title missing Jira ticket (e.g. ABC-123). Current title: "${title}"`);
